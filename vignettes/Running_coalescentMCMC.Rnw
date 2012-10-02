@@ -1,0 +1,236 @@
+\documentclass[a4paper]{article}
+%\VignetteIndexEntry{Runnning coalescentMCMC}
+%\VignettePackage{coalescentMCMC}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyvrb}
+\usepackage{color,natbib}
+
+\newcommand{\code}{\texttt}
+\newcommand{\pkg}{\textsf}
+\newcommand{\coalmcmc}{\pkg{coalescentMCMC}}
+\newcommand{\pegas}{\pkg{pegas}}
+\newcommand{\ape}{\pkg{ape}}
+
+\author{Emmanuel Paradis}
+\title{Running Coalescent Analyses With \coalmcmc}
+
+\begin{document}
+\maketitle
+
+<<echo=false,quiet=true>>=
+options(width=60)
+@
+
+\noindent Coalescent analyses have emerged in the recent years as a
+powerful approach to investigate the demography of populations using
+genetic data. The coalescent is a random process describing the
+coalescent times of a genealogy with respect to population size and
+mutation rate. In the majority of cases, the genealogy of individuals
+within a population is unknown. So a coalescent analysis typically
+consider integrating over the ``likely'' genealogies to make inference on
+the dynamics of the population. This uses computer-intensive methods
+such as Monte Carlo simulations of Markov chains. Besides, if
+priors are defined on the distributions of the parameters, Bayesian
+inference can be done. Several methods have been proposed for such
+integrations, although currently there is no consensus on which method
+is the best or which ones are the most appropriate in some circumstances
+\cite{Felsenstein2007}.
+
+\coalmcmc\ aims to provide a general framework to run coalescent
+analyses. In its current (and early) version, the package
+provides only a simple MCMC algorithm based on Hastings's
+ratio.
+
+\coalmcmc\ has three main groups of functions that have different roles:
+
+\begin{itemize}
+\item the function \code{coalescentMCMC} itself which runs the chain;
+\item some functions doing operations on tree which are called by the
+  previous one to move from one tree to another;
+\item some functions to infer demography from genealogies under
+  various coalescent models which are typically used to analyse the
+  output of a chain run.
+\end{itemize}
+
+The motivating idea behind \coalmcmc\ is that the user can have full
+control over the analysis. The options of the main function are:
+
+\begin{Verbatim}[formatcom=\color{blue}]
+coalescentMCMC(x, ntrees = 10000, burnin = ntrees,
+               ini.tree = NULL, quiet = FALSE)
+\end{Verbatim}
+where \code{ntrees} are the number of (accepted) trees to output,
+\code{burnin} is the number of trees discarded before output starts,
+and \code{ini.tree} is the initial tree (if not provided, a UPGMA tree
+from a JC69-based distance matrix is used). The proposed trees are not
+output, though this may be easily modified.  The code of the function
+is relatively simple:
+
+\begin{Schunk}
+\begin{Sinput}
+> library(coalescentMCMC)
+> body(coalescentMCMC)
+\end{Sinput}
+\begin{Soutput}
+{
+    if (is.null(tree0)) {
+        d <- dist.dna(x, "JC69")
+        X <- phangorn::phyDat(x)
+        tree0 <- as.phylo(hclust(d, "average"))
+    }
+    n <- Ntip(tree0)
+    nodeMax <- 2 * n - 1
+    TREES <- vector("list", ntrees)
+    LL <- numeric(ntrees)
+    lnL0 <- phangorn::pml(tree0, X)$logLik
+    i <- j <- 0L
+    if (!quiet) {
+        cat("Running the Markov chain:\n")
+        cat("Nb of proposed trees    Nb of accepted trees\n")
+    }
+    while (i <= ntrees) {
+        if (!quiet)
+            cat("\r     ", j, "                   ", i, "           ")
+        j <- j + 1L
+        tr.b <- NeighborhoodRearrangement(tree0, n, nodeMax)
+        lnL.b <- phangorn::pml(tr.b, X)$logLik
+        ACCEPT <- if (is.na(lnL.b))
+            FALSE
+        else {
+            if (lnL.b >= lnL0)
+                TRUE
+            else rbinom(1, 1, exp(lnL.b - lnL0))
+        }
+        if (ACCEPT) {
+            lnL0 <- lnL.b
+            tree0 <- tr.b
+            if (j > burnin) {
+                i <- i + 1L
+                LL[i] <- lnL0
+                TREES[[i]] <- tree0
+            }
+        }
+    }
+    class(TREES) <- "multiPhylo"
+    if (!quiet)
+        cat("\nDone.\n")
+    list(trees = TREES, logLik = LL)
+}
+\end{Soutput}
+\end{Schunk}
+The accepted trees are stored in the list \code{TREES}; it appears
+that all proposed trees \code{tr.b} can also be stored and output with
+minor modifications of the code. The coding of the Hastings's ratio is clear
+(\code{ACCEPT}) and this part can also be tailored at will.
+
+The above implementation uses only neighborhood rearrangement as
+proposed in \cite{Kuhner1995} calling the function
+\code{NeighborhoodRearrangement} at each cycle of the chain. This can
+modified by using other functions described in \code{?treeOperators}.
+
+Let us now consider a very simple analysis with the woodmouse data
+available in \ape. After loading the data, we run an MCMC with the
+default settings, thus outputing 10,000 trees after a burn-in period
+of 10,000 steps:
+
+\begin{Schunk}
+\begin{Sinput}
+> data(woodmouse)
+> out <- coalescentMCMC(woodmouse)
+\end{Sinput}
+\begin{Soutput}
+Running the Markov chain:
+Nb of proposed trees    Nb of accepted trees
+      67207                     10000
+Done.
+\end{Soutput}
+\end{Schunk}
+A total of 67,207 trees have been proposed, so among them 57,207 have
+not been accepted (including the 10,000 that were initially accepted
+but were discarded because of the burn-in period). We can examine how
+the log-likelihood of the accepted trees evolved along the chain:
+
+\begin{Schunk}
+\begin{Sinput}
+> plot(out$logLik, type = "l")
+\end{Sinput}
+\end{Schunk}
+
+\includegraphics{Running_coalescentMCMC-001}
+
+The log-likelihood was relatively stable between $-1872$ and
+$-1871$. For the sake of simplicity, we consider only the last 1000
+trees from the chain for further analysis. Extracting them is easy
+with standard R operators:
+
+\begin{Schunk}
+\begin{Sinput}
+> s <- 9001:1e4
+> o <- list(trees = out$trees[s], logLik = out$logLik[s])
+\end{Sinput}
+\end{Schunk}
+
+The list \code{o} is now a subset of the full output \code{out}. On each
+of those extracted trees, we wish to estimate $\Theta$. This can be
+done with the function \code{theta.tree} in \pegas. The help page of
+this function tells us that it returns a list with named elements:
+
+\begin{Schunk}
+\begin{Sinput}
+> library(pegas)
+> theta.tree(o$trees[[1]], .01)
+\end{Sinput}
+\begin{Soutput}
+$theta
+[1] 0.02127424
+
+$se
+[1] 0.00568578
+
+$logLik
+[1] 83.29005
+\end{Soutput}
+\end{Schunk}
+So we build a function ``on-the-fly'' to return only the value we
+want. Again, we use a standard R function, here \code{sapply}, to
+perform the operation in simple way:
+
+\begin{Schunk}
+\begin{Sinput}
+> Theta <- sapply(o$trees, function(x) theta.tree(x, .01)$theta)
+> head(Theta)
+\end{Sinput}
+\begin{Soutput}
+[1] 0.02127424 0.02102289 0.02103378 0.02103378 0.02134836 0.02129919
+\end{Soutput}
+\end{Schunk}
+We can plot the estimated values against the log-likelihood of each tree:
+
+\begin{Schunk}
+\begin{Sinput}
+> plot(o$logLik, Theta)
+\end{Sinput}
+\end{Schunk}
+
+\includegraphics{Running_coalescentMCMC-002}
+
+Finally, we do a global estimation of $\Theta$ with the mean
+weighted by the tree log-likelihoods:
+
+\begin{Schunk}
+\begin{Sinput}
+> weighted.mean(Theta, o$logLik)
+\end{Sinput}
+\begin{Soutput}
+[1] 0.02046285
+\end{Soutput}
+\end{Schunk}
+
+The above analysis is rather simplistic: a full coalescent analysis
+would be much more complicated. However, it aims to show here the
+potential of using R for such analyses.
+
+\bibliographystyle{plain}
+\bibliography{coalescentMCMC}
+
+\end{document}
