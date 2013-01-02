@@ -1,5 +1,8 @@
+useDynLib(coalescentMCMC)
+
 exportPattern("^[^\\.]")
 
 import(ape)
 import(phangorn)
-
+import(pegas)
+import(coda)

@@ -1,6 +1,6 @@
-/* coalescentMCMC.c (2012-10-01) */
+/* coalescentMCMC.c (2013-01-02) */
 
-/* Copyright 2012 Emmanuel Paradis
+/* Copyright 2012-2013 Emmanuel Paradis
 
 /* This file is part of the R-package `coalescentMCMC'. */
 /* See the file ../COPYING for licensing issues. */
@@ -9,15 +9,17 @@
 
 void get_single_index_integer(int *x, int *val, int *index)
 {
-	while (x[*index] != *val) (*index)++;
-	*index += 1;
+	int i = 0, v = *val;
+	while (x[i] != v) i++;
+	*index = i + 1;
 }
 
 void get_two_index_integer(int *x, int *val, int *index)
 {
-	while (x[index[0]] != *val) index[0]++;
-	index[1] = index[0] + 1;
-	while (x[index[1]] != *val) index[1]++;
-	index[0] += 1;
-	index[1] += 1;
+	int i1 = 0, i2, v = *val;
+	while (x[i1] != v) i1++;
+	i2 = i1 + 1;
+	while (x[i2] != v) i2++;
+	index[0] = i1 + 1;
+	index[1] = i2 + 1;
 }
