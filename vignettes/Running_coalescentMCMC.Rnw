@@ -8,7 +8,6 @@
 \newcommand{\code}{\texttt}
 \newcommand{\pkg}{\textsf}
 \newcommand{\coalmcmc}{\pkg{coalescentMCMC}}
-\newcommand{\pegas}{\pkg{pegas}}
 \newcommand{\ape}{\pkg{ape}}
 
 \author{Emmanuel Paradis}
@@ -56,72 +55,24 @@ The motivating idea behind \coalmcmc\ is that the user can have full
 control over the analysis. The options of the main function are:
 
 \begin{Verbatim}[formatcom=\color{blue}]
-coalescentMCMC(x, ntrees = 10000, burnin = ntrees,
-               ini.tree = NULL, quiet = FALSE)
+coalescentMCMC(x, ntrees = 3000, burnin = 1000, frequency = 1,
+               tree0 = NULL, model = NULL, quiet = FALSE)
 \end{Verbatim}
-where \code{ntrees} are the number of (accepted) trees to output,
-\code{burnin} is the number of trees discarded before output starts,
-and \code{ini.tree} is the initial tree (if not provided, a UPGMA tree
-from a JC69-based distance matrix is used). The proposed trees are not
-output, though this may be easily modified.  The code of the function
-is relatively simple:
+where \code{ntrees} are the number of trees to output,
+\code{burnin} is the number of trees discarded before output (of trees) starts, \code{frequency} is the sampling frequency along the Markov chain,
+and \code{tree0} is the initial tree (if not provided, a UPGMA tree
+from a JC69-based distance matrix is used). \code{model} is either \code{NULL} is which case $\Theta$ is assumed to be constant, or \code{"time"} in which case a model where $\Theta$ follows an exponential growth is used.\footnote{Other models will be implemented later. See the vignette ``CoalescentModels''.} Finally, \code{quiet} is a logical parameter controlling whether to print an indication of the progress of the chain.
 
-\begin{Schunk}
-\begin{Sinput}
-> library(coalescentMCMC)
-> body(coalescentMCMC)
-\end{Sinput}
-\begin{Soutput}
-{
-    if (is.null(tree0)) {
-        d <- dist.dna(x, "JC69")
-        X <- phangorn::phyDat(x)
-        tree0 <- as.phylo(hclust(d, "average"))
-    }
-    n <- Ntip(tree0)
-    nodeMax <- 2 * n - 1
-    TREES <- vector("list", ntrees)
-    LL <- numeric(ntrees)
-    lnL0 <- phangorn::pml(tree0, X)$logLik
-    i <- j <- 0L
-    if (!quiet) {
-        cat("Running the Markov chain:\n")
-        cat("Nb of proposed trees    Nb of accepted trees\n")
-    }
-    while (i <= ntrees) {
-        if (!quiet)
-            cat("\r     ", j, "                   ", i, "           ")
-        j <- j + 1L
-        tr.b <- NeighborhoodRearrangement(tree0, n, nodeMax)
-        lnL.b <- phangorn::pml(tr.b, X)$logLik
-        ACCEPT <- if (is.na(lnL.b))
-            FALSE
-        else {
-            if (lnL.b >= lnL0)
-                TRUE
-            else rbinom(1, 1, exp(lnL.b - lnL0))
-        }
-        if (ACCEPT) {
-            lnL0 <- lnL.b
-            tree0 <- tr.b
-            if (j > burnin) {
-                i <- i + 1L
-                LL[i] <- lnL0
-                TREES[[i]] <- tree0
-            }
-        }
-    }
-    class(TREES) <- "multiPhylo"
-    if (!quiet)
-        cat("\nDone.\n")
-    list(trees = TREES, logLik = LL)
-}
-\end{Soutput}
-\end{Schunk}
-The accepted trees are stored in the list \code{TREES}; it appears
-that all proposed trees \code{tr.b} can also be stored and output with
-minor modifications of the code. The coding of the Hastings's ratio is clear
-(\code{ACCEPT}) and this part can also be tailored at will.
+The code of the function is relatively simple:
+
+<<>>=
+library(coalescentMCMC)
+body(coalescentMCMC)
+@ 
+The trees are stored in the list \code{TREES\_xxx} with xxx being 1,
+2, \dots, for the successive chains run during a session (see below).
+The coding of the Hastings's ratio is clear (\code{ACCEPT}) and this
+part can also be tailored at will.
 
 The above implementation uses only neighborhood rearrangement as
 proposed in \cite{Kuhner1995} calling the function
@@ -129,106 +80,151 @@ proposed in \cite{Kuhner1995} calling the function
 modified by using other functions described in \code{?treeOperators}.
 
 Let us now consider a very simple analysis with the woodmouse data
-available in \ape. After loading the data, we run an MCMC with the
-default settings, thus outputing 10,000 trees after a burn-in period
-of 10,000 steps:
+available in \ape. For the purpose of this vignette, we run a very
+light analysis in order to produce small outputs in a reasonable time
+(it seems that in practice the above default values are a minimum).
+
+<<echo=false,quiet=true>>=
+data(woodmouse)
+out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, quiet = TRUE)
+@
 
 \begin{Schunk}
 \begin{Sinput}
 > data(woodmouse)
-> out <- coalescentMCMC(woodmouse)
+> out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100)
 \end{Sinput}
 \begin{Soutput}
 Running the Markov chain:
-Nb of proposed trees    Nb of accepted trees
-      67207                     10000
+  Number of trees to output: 300
+  Burn-in period: 100
+  Sampling frequency: 1
+  Number of generations to run: 400
+Generation    Nb of accepted trees
+   400                  62
 Done.
 \end{Soutput}
 \end{Schunk}
-A total of 67,207 trees have been proposed, so among them 57,207 have
-not been accepted (including the 10,000 that were initially accepted
-but were discarded because of the burn-in period). We can examine how
-the log-likelihood of the accepted trees evolved along the chain:
+
+The output object is of class \code{"coda"}, so we can visualise it with the package of the same name (which has already been loaded):
+
+\setkeys{Gin}{width=\textwidth}
+<<fig=true>>=
+plot(out)
+@ 
+The log-likelihood was relatively stable between $-1870$ and
+$-1880$. The trees are stored in a special place of the memory (an environment in R's jargon) from where they can be retrieved with a specific function:
+
+<<>>=
+TR <- getMCMCtrees()
+TR
+@ 
+Note that the trees generated during the burn-in period are not output, but the corresponding values of log-likelihood and $\Theta$ are. Hence \code{out} has 400 rows.
+
+<<>>=
+dim(out)
+colnames(out)
+@
+
+We now run a model of time-dependent coalescent where $\Theta$ follows an exponential change through time:
+
+<<echo=false,quiet=true>>=
+out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time", quiet = TRUE)
+@
 
 \begin{Schunk}
 \begin{Sinput}
-> plot(out$logLik, type = "l")
-\end{Sinput}
-\end{Schunk}
-
-\includegraphics{Running_coalescentMCMC-001}
-
-The log-likelihood was relatively stable between $-1872$ and
-$-1871$. For the sake of simplicity, we consider only the last 1000
-trees from the chain for further analysis. Extracting them is easy
-with standard R operators:
-
-\begin{Schunk}
-\begin{Sinput}
-> s <- 9001:1e4
-> o <- list(trees = out$trees[s], logLik = out$logLik[s])
-\end{Sinput}
-\end{Schunk}
-
-The list \code{o} is now a subset of the full output \code{out}. On each
-of those extracted trees, we wish to estimate $\Theta$. This can be
-done with the function \code{theta.tree} in \pegas. The help page of
-this function tells us that it returns a list with named elements:
-
-\begin{Schunk}
-\begin{Sinput}
-> library(pegas)
-> theta.tree(o$trees[[1]], .01)
+> out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time")
 \end{Sinput}
 \begin{Soutput}
-$theta
-[1] 0.02127424
-
-$se
-[1] 0.00568578
-
-$logLik
-[1] 83.29005
-\end{Soutput}
-\end{Schunk}
-So we build a function ``on-the-fly'' to return only the value we
-want. Again, we use a standard R function, here \code{sapply}, to
-perform the operation in simple way:
-
-\begin{Schunk}
-\begin{Sinput}
-> Theta <- sapply(o$trees, function(x) theta.tree(x, .01)$theta)
-> head(Theta)
-\end{Sinput}
-\begin{Soutput}
-[1] 0.02127424 0.02102289 0.02103378 0.02103378 0.02134836 0.02129919
-\end{Soutput}
-\end{Schunk}
-We can plot the estimated values against the log-likelihood of each tree:
-
-\begin{Schunk}
-\begin{Sinput}
-> plot(o$logLik, Theta)
-\end{Sinput}
-\end{Schunk}
-
-\includegraphics{Running_coalescentMCMC-002}
-
-Finally, we do a global estimation of $\Theta$ with the mean
-weighted by the tree log-likelihoods:
-
-\begin{Schunk}
-\begin{Sinput}
-> weighted.mean(Theta, o$logLik)
-\end{Sinput}
-\begin{Soutput}
-[1] 0.02046285
+Running the Markov chain:
+  Number of trees to output: 300
+  Burn-in period: 100
+  Sampling frequency: 1
+  Number of generations to run: 400
+Generation    Nb of accepted trees
+   400                  54
+Done.
 \end{Soutput}
 \end{Schunk}
 
-The above analysis is rather simplistic: a full coalescent analysis
-would be much more complicated. However, it aims to show here the
-potential of using R for such analyses.
+<<fig=true>>=
+plot(out2)
+@ 
+The change in log-likelihood along the chain is similar to what was observed above. The object \code{out2} has now three columns:
+<<>>=
+dim(out2)
+colnames(out2)
+@ 
+If we try to extract the trees as previously done and R is running in interactive mode, we will be asked which list of trees to extract:
+
+\begin{Verbatim}[formatcom=\color{green}]
+> getMCMCtrees()
+Several lists of MCMC trees are stored:
+
+1 : TREES_1
+2 : TREES_2
+
+Return which number?
+\end{Verbatim}
+Because the code of this vignette is not run interactively, we must extract the list explicitly with \code{get}:
+
+<<>>=
+TR2 <- get("TREES_2", envir = .coalescentMCMCenv)
+@
+
+We can now compare both coalescent models: the two hypotheses under consideration are:
+
+\begin{itemize}
+\item H$_0$: $\Theta$ is constant;
+\item H$_1$: $\Theta$ changes through time following an exponential model.
+\end{itemize}
+
+We need to calculate the likelihood under both hypotheses. This can be done with functions provided in \coalmcmc\ (see \code{?dcoal}). We use the last 100 trees of each chain.\footnote{These calculations are quite fast, even with 1000 trees, but we use here a subset of the trees to illustrate how we select some of them which might be useful when running a longer Markov chain.} Because we are using a list of trees (which is a vector) and also a vector of estimates of $\Theta$, the function to use here is \code{mapply}. For clarity, we extract the trees and the values of $\hat{\Theta}$ that we need:
+
+<<>>=
+tr <- TR[-(1:200)]
+THETA <- out[-(1:300), 2]
+logLik0 <- mapply(dcoal, phy = tr, theta = THETA, log = TRUE)
+summary(logLik0)
+@ 
+We can now repeat this operation for the second model:
+
+<<>>=
+tr2 <- TR2[-(1:200)]
+THETA0 <- out2[-(1:300), 2]
+RHO <- out2[-(1:300), 3]
+logLik1 <- mapply(dcoal.time, phy = tr2, theta = THETA0, rho = RHO, log = TRUE)
+summary(logLik1)
+@ 
+A conditional histogram shows the two distributions:
+
+<<fig=true>>=
+print(histogram(~c(logLik0, logLik1) | gl(2, 100, labels = c("H0", "H1"))))
+@ 
+Since the increase in log-likelihood for the second model is about 8, the LRT comparing both models is $\chi^2_1 \approx 16$ which is highly significant ($P \approx 6 \times 10^{-5}$). This suggests that the population of woodmice (\textit{Apodemus sylvaticus}) from where these sequences have been sampled has expanded (reminding that in coalescent models the time scale is reversed so a negative value of $\rho$ means that the population has expanded).
+
+Finally, we produce estimates of the parameters weighted by the likelihoods of the trees:
+
+<<>>=
+treeloglik <- out2[-(1:300), 1]
+(theta0ML <- weighted.mean(THETA0, treeloglik))
+(rhoML <- weighted.mean(RHO, treeloglik))
+@ 
+We can represent the temporal variation in $\Theta$ predicted by this model (remember that the time scale is the one of molecular change):
+
+<<fig=true>>=
+x <- seq(0, 0.01, 0.0001)
+y <- theta0ML * exp(rhoML * x)
+plot(-x, y, "l", xlab = "Time", ylab = expression(Theta))
+@
+
+Other things that could be done with simple R commands include:
+
+\begin{itemize}
+\item Compute confidence intervals around $\hat{\Theta}_0$ and $\hat{\rho}$ (alternatively, posterior distributions of these parameters if a Bayesian sampling is done);
+\item Re-run the chain(s) with different initial trees, for instance to run branching chains taking a tree from \code{TR} or \code{TR2}.
+\end{itemize}
 
 \bibliographystyle{plain}
 \bibliography{coalescentMCMC}

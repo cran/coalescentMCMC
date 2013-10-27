@@ -1,4 +1,4 @@
-## treeOperators.R (2013-01-10)
+## treeOperators.R (2013-10-18)
 
 ##   Trees Operators for Running MCMC
 
@@ -9,22 +9,18 @@
 
 getIndexEdge <- function(tip, edge)
     ## 'integer(1)' mustn't be substituted by '0L' except if 'DUP = TRUE':
-    .C("get_single_index_integer", as.integer(edge[, 2L]),
-       as.integer(tip), integer(1L), PACKAGE = "coalescentMCMC",
-       NAOK = TRUE, DUP = FALSE)[[3L]]
+    .C(get_single_index_integer, as.integer(edge[, 2L]),
+       as.integer(tip), integer(1L), NAOK = TRUE, DUP = FALSE)[[3L]]
 
 getIndexEdge2 <- function(node, edge)
-    .C("get_two_index_integer", as.integer(edge[, 1L]),
-       as.integer(node), integer(2L), PACKAGE = "coalescentMCMC",
-       NAOK = TRUE, DUP = FALSE)[[3L]]
+    .C(get_two_index_integer, as.integer(edge[, 1L]),
+       as.integer(node), integer(2L), NAOK = TRUE, DUP = FALSE)[[3L]]
 
-NeighborhoodRearrangement <- function(phy, n, nodeMax)
+NeighborhoodRearrangement <- function(phy, n, nodeMax, target, THETA, brtimes)
 {
-    THETA <- pegas::theta.tree(phy, 1)$theta
-    bt <- c(rep(0, n), branching.times(phy))
-    ## select one internal node excluding the root
-    target <- sample((n + 2):nodeMax, size = 1L)
-
+    ## pegas is no more needed:
+    ## THETA <- theta.tree(phy, 1)$theta
+    bt <- c(rep(0, n), brtimes)
     e <- phy$edge # local copy
 
 ### i1, i2, and i3 are edge indices
@@ -33,13 +29,11 @@ NeighborhoodRearrangement <- function(phy, n, nodeMax)
     ## i1 <- which(e2 == target)
     i1 <- getIndexEdge(target, e)
     anc <- e[i1, 1L] # the ancestor of 'target'
-    ## i2 <- which(e1 == target)
     i2 <- getIndexEdge2(target, e) # the 2 edges where 'target' is basal
-    ## i3 <- which(e1 == anc)
     i3 <- getIndexEdge2(anc, e) # this includes i1, so:
     i3 <- i3[i3 != i1]
     sister <- e[i3, 2L] # the sister-node of 'target'
-    sel <- sample(2L, size = 1L)
+    sel <- sample.int(2L, 1L)
     i2.move <- i2[sel]
     i2.stay <- i2[-sel]
     phy$edge[i3, 2L] <- child2move <- e[i2.move, 2L]
@@ -89,10 +83,10 @@ EdgeLengthJittering <- function(phy)
 ### all edge lengths are added to a random value on U[-MIN, MAX]
 ### (the ultrametric nature of the tree is kept)
 {
-   z <- range(phy$edge.length)
-   MIN <- z[1]
-   MAX <- z[2]
-   x <- runif(1, -MIN, MAX) # should be OK even if MIN=0
-   phy$edge.length <- phy$edge.length + x
-   phy
+    z <- range(phy$edge.length)
+    MIN <- z[1]
+    MAX <- z[2]
+    x <- runif(1, -MIN, MAX) # should be OK even if MIN=0
+    phy$edge.length <- phy$edge.length + x
+    phy
 }

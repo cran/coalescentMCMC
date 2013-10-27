@@ -1,6 +1,40 @@
+		CHANGES IN coalescentMCMC VERSION 0.3
+
+
+NEW FEATURES
+
+    o coalescentMCMC() has been extensively modified. It has a new
+      option (model) to select the coalescent model. Currently, only
+      two models can be fitted.
+
+    o The coalescent parameters are now output as part of the "coda"
+      object.
+
+    o Trees of the MCMCs are extracted with the new function
+      getMCMCtrees. The trees of successive chains are stored and can
+      be retrieved separately. If several lists of trees are stored,
+      getMCMCtrees() will call an interactive menu to select the list
+      to retrieve.
+
+    o The vignette "Running_coalescentMCMC" has been updated and now
+      presents a (almost) complete analysis.
+
+
+OTHER CHANGES
+
+    o The packages adegenet and pegas are no more required.
+
+    o Improved DESCRIPTION and NAMESPACE files.
+
+    o The arguments of NeighborhoodRearrangement() have been modified.
+
+
+
 		CHANGES IN coalescentMCMC VERSION 0.2
 
 
 NEW FEATURES
 
     o The main MCMC has been completely rewritten.
+
+    o The package coda is now used to analyse MCMC outputs.

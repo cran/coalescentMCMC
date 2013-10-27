@@ -5,10 +5,10 @@
 \alias{dcoal.linear}
 \alias{dcoal.time}
 \alias{dcoal.time2}
-\title{pdf of Various Time-Dependent Coalescent Models}
+\title{Density Functions of Various Time-Dependent Coalescent Models}
 \description{
   These functions compute the (log-)likelihood values for various
-  coalescent models, including the constant-\eqn{\theta}{THETA} model
+  coalescent models, including the constant-\eqn{\Theta}{THETA} model
   and various time-dependent models.
 }
 \usage{

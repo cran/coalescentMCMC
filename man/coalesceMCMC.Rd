@@ -10,7 +10,7 @@
 }
 \usage{
 coalescentMCMC(x, ntrees = 3000, burnin = 1000, frequency = 1,
-               tree0 = NULL, quiet = FALSE)
+               tree0 = NULL, model = NULL, quiet = FALSE)
 getMCMCtrees()
 }
 \arguments{
@@ -21,6 +21,8 @@ getMCMCtrees()
   \item{frequency}{the frequency at which trees are sampled.}
   \item{tree0}{the initial tree of the chain; by default, a UPGMA
     tree with a JC69 distance is generated.}
+  \item{model}{the coalescent model to be used for resampling. By
+    default, a constant-THETA is used.}
   \item{quiet}{a logical specifying whether to print the numbers of trees
     proposed and accepted.}
 }
@@ -55,7 +57,7 @@ getMCMCtrees()
 \examples{
 \dontrun{
 data(woodmouse)
-system.time(out <- coalescentMCMC(woodmouse)) # circa 12 sec.
+system.time(out <- coalescentMCMC(woodmouse)) # circa 11 sec.
 plot(out)
 getMCMCtrees() # returns 3000 trees
 }}

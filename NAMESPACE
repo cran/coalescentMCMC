@@ -1,8 +1,10 @@
-useDynLib(coalescentMCMC)
+useDynLib(coalescentMCMC, .registration = TRUE)
 
-exportPattern("^[^\\.]")
+export(.coalescentMCMCenv, coalescentMCMC, dcoal, dcoal.linear,
+       dcoal.step, dcoal.time, dcoal.time2, EdgeLengthJittering,
+       getMCMCtrees, NeighborhoodRearrangement, TipInterchange)
 
-import(ape)
-import(phangorn)
-import(pegas)
-import(coda)
+importFrom(ape, as.phylo, branching.times, dist.dna, Ntip, reorder.phylo)
+importFrom(coda, mcmc)
+importFrom(phangorn, phyDat, pml)
+importFrom(stats, hclust, rbinom, reorder, runif)
