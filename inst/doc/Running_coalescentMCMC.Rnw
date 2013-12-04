@@ -26,19 +26,18 @@ genetic data. The coalescent is a random process describing the
 coalescent times of a genealogy with respect to population size and
 mutation rate. In the majority of cases, the genealogy of individuals
 within a population is unknown. So a coalescent analysis typically
-consider integrating over the ``likely'' genealogies to make inference on
+integrates over the ``likely'' genealogies to make inference on
 the dynamics of the population. This uses computer-intensive methods
 such as Monte Carlo simulations of Markov chains. Besides, if
 priors are defined on the distributions of the parameters, Bayesian
 inference can be done. Several methods have been proposed for such
 integrations, although currently there is no consensus on which method
-is the best or which ones are the most appropriate in some circumstances
+is the best, or which ones are the most appropriate in some circumstances
 \cite{Felsenstein2007}.
 
 \coalmcmc\ aims to provide a general framework to run coalescent
-analyses. In its current (and early) version, the package
-provides only a simple MCMC algorithm based on Hastings's
-ratio.
+analyses. In its current version, the package provides a simple MCMC
+algorithm based on Hastings's ratio.
 
 \coalmcmc\ has three main groups of functions that have different roles:
 
@@ -54,35 +53,31 @@ ratio.
 The motivating idea behind \coalmcmc\ is that the user can have full
 control over the analysis. The options of the main function are:
 
-\begin{Verbatim}[formatcom=\color{blue}]
-coalescentMCMC(x, ntrees = 3000, burnin = 1000, frequency = 1,
-               tree0 = NULL, model = NULL, quiet = FALSE)
-\end{Verbatim}
-where \code{ntrees} are the number of trees to output,
-\code{burnin} is the number of trees discarded before output (of trees) starts, \code{frequency} is the sampling frequency along the Markov chain,
-and \code{tree0} is the initial tree (if not provided, a UPGMA tree
-from a JC69-based distance matrix is used). \code{model} is either \code{NULL} is which case $\Theta$ is assumed to be constant, or \code{"time"} in which case a model where $\Theta$ follows an exponential growth is used.\footnote{Other models will be implemented later. See the vignette ``CoalescentModels''.} Finally, \code{quiet} is a logical parameter controlling whether to print an indication of the progress of the chain.
-
-The code of the function is relatively simple:
 
 <<>>=
 library(coalescentMCMC)
-body(coalescentMCMC)
+args(coalescentMCMC)
 @ 
-The trees are stored in the list \code{TREES\_xxx} with xxx being 1,
-2, \dots, for the successive chains run during a session (see below).
-The coding of the Hastings's ratio is clear (\code{ACCEPT}) and this
-part can also be tailored at will.
+where \code{ntrees} are the number of trees to output, \code{burnin}
+is the number of trees discarded before output of trees starts,
+\code{frequency} is the sampling frequency of trees, and \code{tree0}
+is the initial tree (if not provided, a UPGMA tree from a JC69-based
+distance matrix is used). \code{model} is either \code{NULL} in which
+case $\Theta$ is assumed to be constant, or \code{"time"} in which
+case a model where $\Theta$ follows an exponential growth is
+used.\footnote{Other models will be implemented later. See the
+vignette ``CoalescentModels''.} Finally, \code{quiet} is a logical
+parameter controlling whether to print an indication of the progress
+of the chain.
 
-The above implementation uses only neighborhood rearrangement as
+The current implementation uses only neighborhood rearrangement as
 proposed in \cite{Kuhner1995} calling the function
-\code{NeighborhoodRearrangement} at each cycle of the chain. This can
+\code{NeighborhoodRearrangement} at each step of the chain. This can
 modified by using other functions described in \code{?treeOperators}.
 
 Let us now consider a very simple analysis with the woodmouse data
 available in \ape. For the purpose of this vignette, we run a very
-light analysis in order to produce small outputs in a reasonable time
-(it seems that in practice the above default values are a minimum).
+light analysis in order to produce small outputs in a reasonable time.
 
 <<echo=false,quiet=true>>=
 data(woodmouse)
@@ -158,19 +153,25 @@ colnames(out2)
 @ 
 If we try to extract the trees as previously done and R is running in interactive mode, we will be asked which list of trees to extract:
 
-\begin{Verbatim}[formatcom=\color{green}]
+\begin{Verbatim}[formatcom=\color{blue}]
 > getMCMCtrees()
 Several lists of MCMC trees are stored:
 
-1 : TREES_1
-2 : TREES_2
+1 : TREES_001
+2 : TREES_002
 
 Return which number?
 \end{Verbatim}
-Because the code of this vignette is not run interactively, we must extract the list explicitly with \code{get}:
+It is also possible to extract the trees of a specific chain with its number, which is useful when the R code is not run interactively (such as this vignette):
 
 <<>>=
-TR2 <- get("TREES_2", envir = .coalescentMCMCenv)
+TR2 <- getMCMCtrees(2)
+@
+
+The parameters of the MCMC runs are stored separately and can be extracted with:
+
+<<>>=
+getMCMCstats()
 @
 
 We can now compare both coalescent models: the two hypotheses under consideration are:
@@ -180,20 +181,28 @@ We can now compare both coalescent models: the two hypotheses under consideratio
 \item H$_1$: $\Theta$ changes through time following an exponential model.
 \end{itemize}
 
-We need to calculate the likelihood under both hypotheses. This can be done with functions provided in \coalmcmc\ (see \code{?dcoal}). We use the last 100 trees of each chain.\footnote{These calculations are quite fast, even with 1000 trees, but we use here a subset of the trees to illustrate how we select some of them which might be useful when running a longer Markov chain.} Because we are using a list of trees (which is a vector) and also a vector of estimates of $\Theta$, the function to use here is \code{mapply}. For clarity, we extract the trees and the values of $\hat{\Theta}$ that we need:
+We need to calculate the likelihood under both hypotheses. This can be
+done with functions provided in \coalmcmc\ (see \code{?dcoal}). We use
+the last 100 trees of each chain.\footnote{These calculations are
+quite fast, even with 1000 trees, but we use here a subset of the
+trees to illustrate how we select some of them which might be useful
+when running longer Markov chains.} Because we are using a list of
+trees (which is a vector) and also a vector of estimates of $\Theta$,
+we use here the function \code{mapply}. For clarity, we extract the
+trees and the values of $\hat{\Theta}$ that we need:
 
 <<>>=
-tr <- TR[-(1:200)]
-THETA <- out[-(1:300), 2]
+tr <- TR[201:300]
+THETA <- out[301:400, 2]
 logLik0 <- mapply(dcoal, phy = tr, theta = THETA, log = TRUE)
 summary(logLik0)
 @ 
 We can now repeat this operation for the second model:
 
 <<>>=
-tr2 <- TR2[-(1:200)]
-THETA0 <- out2[-(1:300), 2]
-RHO <- out2[-(1:300), 3]
+tr2 <- TR2[201:300]
+THETA0 <- out2[301:400, 2]
+RHO <- out2[301:400, 3]
 logLik1 <- mapply(dcoal.time, phy = tr2, theta = THETA0, rho = RHO, log = TRUE)
 summary(logLik1)
 @ 
@@ -204,18 +213,32 @@ print(histogram(~c(logLik0, logLik1) | gl(2, 100, labels = c("H0", "H1"))))
 @ 
 Since the increase in log-likelihood for the second model is about 8, the LRT comparing both models is $\chi^2_1 \approx 16$ which is highly significant ($P \approx 6 \times 10^{-5}$). This suggests that the population of woodmice (\textit{Apodemus sylvaticus}) from where these sequences have been sampled has expanded (reminding that in coalescent models the time scale is reversed so a negative value of $\rho$ means that the population has expanded).
 
-Finally, we produce estimates of the parameters weighted by the likelihoods of the trees:
+We can also compare both models with the deviance information criterion (DIC) developed by Spiegelhalter \textit{et al.}\ \cite{Spiegelhalter2002}. These authors defined this information criterion as DIC = $\bar{D} - D(\bar{\Theta})$, where $\bar{D}$ is the deviance\footnote{The deviance is defined as $D = -2\log L + 2k$, with $L$ the likelihood and $k$ the number of estimated parameters.} averaged over the chain, and $D(\bar{\Theta})$ is the deviance for the mean (or estimates) of the parameters. We first produce estimates of the parameters with their means:
 
 <<>>=
-treeloglik <- out2[-(1:300), 1]
-(theta0ML <- weighted.mean(THETA0, treeloglik))
-(rhoML <- weighted.mean(RHO, treeloglik))
+(MLE0 <- colMeans(out[301:400, 2, drop = FALSE]))
+(MLE1 <- colMeans(out2[301:400, 2:3]))
 @ 
+We then calculate the second term, $D(\bar{\Theta})$, using these estimates and averaging the deviance values over the trees:
+
+<<>>=
+D2.0 <- -2 * mean(mapply(dcoal, phy = tr, theta = MLE0, log = TRUE)) + 2
+D2.1 <- -2 * mean(mapply(dcoal.time, phy = tr2, theta = MLE1[1],
+                         rho = MLE1[2], log = TRUE)) + 4
+@ 
+The values of DIC for both models can now be calculated simply:
+
+<<>>=
+mean(-2 * logLik0 + 2) - D2.0
+mean(-2 * logLik1 + 4) - D2.1
+@ 
+Like for other information criteria (AIC, BIC, \dots) the model with the smallest value of DIC should be preferred: this is here the time-dependent model.
+
 We can represent the temporal variation in $\Theta$ predicted by this model (remember that the time scale is the one of molecular change):
 
 <<fig=true>>=
 x <- seq(0, 0.01, 0.0001)
-y <- theta0ML * exp(rhoML * x)
+y <- MLE1["theta0"] * exp(MLE1["rho"] * x)
 plot(-x, y, "l", xlab = "Time", ylab = expression(Theta))
 @
 
@@ -224,6 +247,7 @@ Other things that could be done with simple R commands include:
 \begin{itemize}
 \item Compute confidence intervals around $\hat{\Theta}_0$ and $\hat{\rho}$ (alternatively, posterior distributions of these parameters if a Bayesian sampling is done);
 \item Re-run the chain(s) with different initial trees, for instance to run branching chains taking a tree from \code{TR} or \code{TR2}.
+\item Use other other models of time-dependent coalescent (see the other vignette in this package).
 \end{itemize}
 
 \bibliographystyle{plain}

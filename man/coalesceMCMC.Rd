@@ -1,17 +1,37 @@
 \name{coalescentMCMC}
 \alias{coalescentMCMC}
 \alias{getMCMCtrees}
+\alias{saveMCMCtrees}
+\alias{cleanMCMCtrees}
+\alias{getLastTree}
+\alias{getMCMCstats}
 \title{Run MCMC for Coalescent Trees}
 \description{
   This function runs a Markov chain Monte Carlo (MCMC) algorithm to
   generate a set of trees which is returned with their likelihoods.
 
-  \code{getMCMCtrees} extracts the trees from the last MCMC run.
+  \code{getMCMCtrees} extracts the trees from previous MCMC runs.
+
+  \code{saveMCMCtrees} saves the lists of trees from previous runs on
+  the user's hard disk.
+
+  \code{cleanMCMCtrees} deletes the lists of trees from previous runs
+  (the files possibly on the hard disk are not changed).
+
+  \code{getLastTree} extracts the last tree from a list of trees (object
+  of class \code{"multiPhylo"}).
+
+  \code{getMCMCstats} returns the summary data for the different chains
+  run during a session.
 }
 \usage{
 coalescentMCMC(x, ntrees = 3000, burnin = 1000, frequency = 1,
                tree0 = NULL, model = NULL, quiet = FALSE)
-getMCMCtrees()
+getMCMCtrees(chain = NULL)
+saveMCMCtrees(destdir = ".", format = "RDS", ...)
+cleanMCMCtrees()
+getLastTree(X)
+getMCMCstats()
 }
 \arguments{
   \item{x}{a set of DNA sequences, typically an object of class
@@ -25,22 +45,43 @@ getMCMCtrees()
     default, a constant-THETA is used.}
   \item{quiet}{a logical specifying whether to print the numbers of trees
     proposed and accepted.}
+  \item{chain}{an integer giving which lists of trees to extract}
+  \item{destdir}{a character string giving the location where to save
+    the files; by default, this is the current working directory.}
+  \item{format}{the format of the tree files. Three choices are
+    possible (cae-insensitive): \code{"RDS"}, \code{"Newick"},
+    \code{"NEXUS"}, or any unambiguous abbreviation of these.}
+  \item{\dots}{options passed to the function used to write the tree
+    files (see below).}
+  \item{X}{an bject of class \code{"multiPhylo"}.}
 }
 \details{
-  A relatively simple MCMC algorithm is programmed using at each step
-  the ``neighborhood rearrangement'' operation (Kuhner et al., 1995) and
-  Hastings's ratio for acceptance/rejection of the proposed tree. This
-  can be modified easily.
+  A simple MCMC algorithm is programmed using at each step the
+  ``neighborhood rearrangement'' operation (Kuhner et al., 1995) and
+  Hastings's ratio for acceptance/rejection of the proposed tree.
 
   The number of generations of the chain is determined by: `frequency'
-  multiplied by `ntrees' + `burnin'. Only the `ntrees' trees are output
+  times `ntrees' plus `burnin'. Only the `ntrees' trees are output
   whereas all the log-likelihood values are output.
+
+  The list of trees is returned in a specific environment and can be
+  extracted with \code{getMCMCtrees}.
+
+  \code{saveMCMCtrees} saves the files with, by default, the RDS format
+  using \code{\link[base]{saveRDS}}. If \code{format = "Newick"},
+  \code{\link[ape]{write.tree}} is used.; if \code{format = "NEXUS"},
+  \code{\link[ape]{write.nexus}} is used. Options can be passed to any
+  of these functions with \code{\dots}.
+
+  \code{getLastTree(X)} is a short-cut to \code{X[[length(X)]]}.
 }
 \value{
-  an object of class \code{"coda"} with the log-likelihood of each tree.
+  \code{coalescentMCMC} returns an object of class \code{"coda"} with
+  the log-likelihood and the parameters of each tree.
 
-  The list of trees is returned in the hidden object \code{.TREES} which
-  can be extracted with \code{getMCMCtrees}.
+  \code{getLastTree} returns an object of class \code{"phylo"}.
+
+  \code{getMCMCstats} returns a data frame.
 }
 \references{
   Hastings, W. K. (1970) Monte Carlo sampling methods using Markov
@@ -57,7 +98,7 @@ getMCMCtrees()
 \examples{
 \dontrun{
 data(woodmouse)
-system.time(out <- coalescentMCMC(woodmouse)) # circa 11 sec.
+out <- coalescentMCMC(woodmouse)
 plot(out)
 getMCMCtrees() # returns 3000 trees
 }}

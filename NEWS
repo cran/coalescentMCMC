@@ -1,3 +1,24 @@
+		CHANGES IN coalescentMCMC VERSION 0.4
+
+
+NEW FEATURES
+
+    o Three new functions, getLastTree, saveMCMCtrees, and
+      cleanMCMCtrees, provide tools to manage lists of trees.
+
+    o Two new models are available in coalescentMCMC(): THETA varying
+      linearly with time, or in a stepwise way (with a single
+      breakpoint in time). All available models are described in a
+      vignette.
+
+    o It is now possible to interrupt coalescentMCMC(): the results at
+      this stage are output normally.
+
+    o getMCMCtrees() has a new option (chain) to extract directly a
+      specific list of trees bypassing the interactive menu.
+
+
+
 		CHANGES IN coalescentMCMC VERSION 0.3
 
 

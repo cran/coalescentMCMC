@@ -1,4 +1,4 @@
-## coalescentMCMC.R (2013-10-18)
+## coalescentMCMC.R (2013-12-04)
 
 ##   Run MCMC for Coalescent Trees
 
@@ -11,6 +11,39 @@ coalescentMCMC <-
     function(x, ntrees = 3000, burnin = 1000, frequency = 1,
              tree0 = NULL, model = NULL, quiet = FALSE)
 {
+    on.exit({
+        if (k < nOut) {
+            if (!k) stop("burn-in period not yet finished")
+            TREES <- TREES[seq_len(k)]
+            LL <- LL[seq_len(i)]
+            params <- params[seq_len(i), ]
+            warning(paste("MCMC interrupted after", i, "generations"))
+        }
+        ## compress the list of trees:
+        attr(TREES, "TipLabel") <- TREES[[1L]]$tip.label
+        lapply(TREES, function(x) x$tip.label <- NULL)
+        class(TREES) <- "multiPhylo"
+
+        suffix <- 1
+        list.trees <- .get.list.trees()
+        if (l <- length(list.trees))
+            suffix <- 1 + as.numeric(sub("TREES_", "", list.trees[l]))
+        suffix <- sprintf("%03d", suffix)
+        assign(paste("TREES", suffix, sep = "_"), TREES,
+               envir = .coalescentMCMCenv)
+
+        i <- i - 1L
+
+        MCMCstats <- get("MCMCstats", envir = .coalescentMCMCenv)
+        MCMCstats[[suffix]] <- c(k, burnin, frequency, i, j)
+        assign("MCMCstats", MCMCstats, envir = .coalescentMCMCenv)
+
+        LL <- cbind(LL, params)
+        colnames(LL) <- c("logLik", para.nms)
+        LL <- mcmc(LL, start = 1, end = i)
+        return(LL)
+    })
+
     if (is.null(tree0)) {
         d <- dist.dna(x, "JC69")
         tree0 <- as.phylo(hclust(d, "average"))
@@ -24,6 +57,21 @@ coalescentMCMC <-
 
     getlogLik <- function(phy, X) pml(phy, X)$logLik
 
+    if (packageVersion("phangorn") >= "1.99.5") {
+        INV <- Matrix(lli(X, tree0), sparse = TRUE)
+        ll.0 <- numeric(attr(X, "nr"))
+        bf <- rep(0.25, 4)
+        eig <- edQt()
+        getlogLik <- function(phy, X) {
+            phy <- reorder(phy, "postorder")
+            pml.init(X)
+            loglik <- pml.fit(phy, X, bf = bf, eig = eig,
+                              INV = INV, ll.0 = ll.0)
+            pml.free()
+            loglik
+        }
+    }
+
     TREES <- vector("list", nOut)
     LL <- numeric(nOut2)
     TREES[[1L]] <- tree0
@@ -36,26 +84,55 @@ coalescentMCMC <-
         ## quantities to calculate THETA:
         two2n <- 2:n
         K4theta <- length(two2n)
-        tmp <- choose(two2n, 2)
+        tmp <- two2n * (two2n - 1) # == 2 * choose(two2n, 2)
         getparams <- function(phy, bt) {
             x4theta <- rev(diff(c(0, sort(bt))))
             sum(x4theta * tmp)/K4theta
         }
         f.theta <- function(t, p) p
-    } else { # only "time" (ie, exponential model) for the moment
-        np <- 2L
-        para.nms <- c("theta0", "rho")
-        getparams <- function(phy, bt) { # 'bt' is not used but is needed to have the same arguments than above
-            out <- nlminb(c(0.02, 0),
-                          function(p) -dcoal.time(phy, p[1], p[2], log = TRUE))
-            out$par
-        }
-        f.theta <- function(t, p) p[1] * exp(p[2] * t)
+    } else {
+        switch(model, time = {
+            np <- 2L
+            para.nms <- c("theta0", "rho")
+            getparams <- function(phy, bt) { # 'bt' is not used but is needed to have the same arguments than above
+                halfdev <- function(p) {
+                    if (any(p <= 0) || any(is.nan(p))) return(1e100)
+                    -dcoal.time(phy, p[1], p[2], log = TRUE)
+                }
+                out <- nlminb(c(0.02, 0), halfdev)
+                out$par
+            }
+            f.theta <- function(t, p) p[1] * exp(p[2] * t)
+        }, step = {
+            np <- 3L
+            para.nms <- c("theta0", "theta1", "tau")
+            getparams <- function(phy, bt) {
+                halfdev <- function(p) {
+                    if (any(p <= 0) || any(is.nan(p))) return(1e100)
+                    -dcoal.step(phy, p[1], p[2], p[3], log = TRUE)
+                }
+                out <- nlminb(c(0.02, 0.02, bt[1]/2), halfdev)
+                out$par
+            }
+            f.theta <- function(t, p) ifelse(t <= p[3], p[1], p[2])
+        }, linear = {
+            np <- 3L
+            para.nms <- c("theta0", "thetaT", "TMRCA")
+            getparams <- function(phy, bt) {
+                halfdev <- function(p) {
+                    if (any(p <= 0) || any(is.nan(p))) return(1e100)
+                    -dcoal.linear(phy, p[1], p[2], p[3], log = TRUE)
+                }
+                out <- nlminb(c(0.02, 0.02, bt[1]), halfdev)
+                out$par
+            }
+            f.theta <- function(t, p) p[1] + t * (p[2] - p[1])/p[3]
+        })
     }
     params <- matrix(0, nOut2, np)
 
     i <- 2L
-    j <- 0L # number of accepted trees
+    j <- 0L # number of accepted moves
     k <- 0L # number of sampled trees
 
     if (!quiet) {
@@ -64,10 +141,9 @@ coalescentMCMC <-
         cat("  Burn-in period:", burnin, "\n")
         cat("  Sampling frequency:", frequency, "\n")
         cat("  Number of generations to run:", ntrees * frequency + burnin, "\n")
-        cat("Generation    Nb of accepted trees\n")
+        cat("Generation    Nb of accepted moves\n")
     }
 
-    ##
     bt0 <- branching.times(tree0)
     params[1L, ] <- para0 <- getparams(tree0, bt0)
 
@@ -84,8 +160,9 @@ coalescentMCMC <-
         tr.b <- NeighborhoodRearrangement(tree0, n, nodeMax, target, THETA, bt0)
         ## do TipInterchange() every 10 steps:
         ## tr.b <-
-        ##     if (!i %% 10) TipInterchange(tree0, n)
+        ##     if (! i %% 10) TipInterchange(tree0, n)
         ##     else NeighborhoodRearrangement(tree0, n, nodeMax, target, THETA, bt0)
+
         if (!(i %% frequency) && i > burnin) {
             k <- k + 1L
             TREES[[k]] <- tr.b
@@ -108,36 +185,70 @@ coalescentMCMC <-
             bt0 <- bt
         }
     }
-
-    #dim(LL) <- c(i - 1, 1)
-    LL <- cbind(LL, params)
-    colnames(LL) <- c("logLik", para.nms)
-    LL <- mcmc(LL, start = 1, end = i - 1)
-
-    ## compress the list of trees:
-    attr(TREES, "TipLabel") <- TREES[[1L]]$tip.label
-    for (i in seq_len(nOut)) TREES[[i]]$tip.label <- NULL
-    class(TREES) <- "multiPhylo"
-
-    j <- 1
-    list.trees <- ls(envir = .coalescentMCMCenv)
-    if (l <- length(list.trees))
-        j <- 1 + as.numeric(sub("TREES_", "", list.trees[l]))
-    assign(paste("TREES", j, sep = "_"), TREES, envir = .coalescentMCMCenv)
     if (!quiet) cat("\nDone.\n")
-    LL
 }
 
-getMCMCtrees <- function() {
-    list.trees <- ls(envir = .coalescentMCMCenv)
+.get.list.trees <- function()
+    ls(envir = .coalescentMCMCenv, pattern = "^TREES_")
+
+getMCMCtrees <- function(chain = NULL)
+{
+    list.trees <- .get.list.trees()
     l <- length(list.trees)
-    if (!l) return(NULL)
-    if (l == 1)
-        return(get(list.trees, envir = .coalescentMCMCenv))
-    ## l > 1:
-    cat("Several lists of MCMC trees are stored:\n\n")
-    for (i in 1:l) cat(i, ":", list.trees[i], "\n")
-    cat("\nReturn which number? ")
-    i <- as.numeric(readLines(n = 1))
-    get(paste("TREES", i, sep = "_"), envir = .coalescentMCMCenv)
+    if (is.null(chain)) {
+        if (!l) return(NULL)
+        if (l == 1)
+            return(get(list.trees, envir = .coalescentMCMCenv))
+        ## l > 1:
+        cat("Several lists of MCMC trees are stored:\n\n")
+        for (i in 1:l) cat(i, ":", list.trees[i], "\n")
+        cat("\nReturn which number? ")
+        chain <- as.numeric(readLines(n = 1))
+    } else {
+        if (!l) {
+            warning("no list of MCMC trees stored")
+            return(NULL)
+        }
+        if (l < chain) {
+            warning("no enough lists of MCMC trees stored")
+            return(NULL)
+        }
+    }
+    get(paste("TREES", sprintf("%03d", chain), sep = "_"),
+        envir = .coalescentMCMCenv)
+}
+
+saveMCMCtrees <- function(destdir = ".", format = "RDS", ...)
+{
+    format <- match.arg(toupper(format), c("RDS", "NEWICK", "NEXUS"))
+    switch(format, RDS = {
+        FUN <- saveRDS
+        suffix <- ".rds"
+    }, NEWICK = {
+        FUN <- write.tree
+        suffix <- ".tre"
+    }, NEXUS = {
+        FUN <- write.nexus
+        suffix <- ".nex"
+    })
+    list.trees <- .get.list.trees()
+    l <- length(list.trees)
+    if (!l) warning("no list of trees to save") else {
+        for (i in 1:l) {
+            f <- list.trees[i]
+            outfile <- paste(destdir, "/", f, suffix, sep = "")
+            FUN(get(f, envir = .coalescentMCMCenv), outfile, ...)
+        }
+    }
+}
+
+cleanMCMCtrees <- function()
+    rm(list = .get.list.trees(), envir = .coalescentMCMCenv)
+
+getLastTree <- function(X) X[[length(X)]]
+
+getMCMCstats <- function()
+{
+    cat("MCMC chain summaries (chains as columns):\n\n")
+    get("MCMCstats", envir = .coalescentMCMCenv)
 }

@@ -69,13 +69,14 @@ TipInterchange <- function(phy, n)
 {
     e <- phy$edge
     repeat {
-        k <- sample(n, size = 2L)
+        k <- sample.int(n, size = 2L)
         i1 <- getIndexEdge(k[1], e)
         i2 <- getIndexEdge(k[2], e)
         ## check that the two tips in 'k' are not sisters
         if (e[i1, 1L] != e[i2, 1L]) break
     }
-    phy$tip.label[k] <- phy$tip.label[rev(k)]
+    e[c(i2, i1), 2L] <- k
+    phy$edge <- e
     phy
 }
 
