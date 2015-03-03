@@ -15,65 +15,65 @@ args(coalescentMCMC)
 
 
 ###################################################
-### code chunk number 3: Running_coalescentMCMC.Rnw:82-84
+### code chunk number 3: Running_coalescentMCMC.Rnw:81-83
 ###################################################
 data(woodmouse)
-out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, quiet = TRUE)
+out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, printevery = 0)
 
 
 ###################################################
-### code chunk number 4: Running_coalescentMCMC.Rnw:107-108
+### code chunk number 4: Running_coalescentMCMC.Rnw:106-107
 ###################################################
 plot(out)
 
 
 ###################################################
-### code chunk number 5: Running_coalescentMCMC.Rnw:113-115
+### code chunk number 5: Running_coalescentMCMC.Rnw:112-114
 ###################################################
 TR <- getMCMCtrees()
 TR
 
 
 ###################################################
-### code chunk number 6: Running_coalescentMCMC.Rnw:119-121
+### code chunk number 6: Running_coalescentMCMC.Rnw:118-120
 ###################################################
 dim(out)
 colnames(out)
 
 
 ###################################################
-### code chunk number 7: Running_coalescentMCMC.Rnw:126-127
+### code chunk number 7: Running_coalescentMCMC.Rnw:125-126
 ###################################################
-out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time", quiet = TRUE)
+out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time", printevery = 0)
 
 
 ###################################################
-### code chunk number 8: Running_coalescentMCMC.Rnw:146-147
+### code chunk number 8: Running_coalescentMCMC.Rnw:145-146
 ###################################################
 plot(out2)
 
 
 ###################################################
-### code chunk number 9: Running_coalescentMCMC.Rnw:150-152
+### code chunk number 9: Running_coalescentMCMC.Rnw:149-151
 ###################################################
 dim(out2)
 colnames(out2)
 
 
 ###################################################
-### code chunk number 10: Running_coalescentMCMC.Rnw:167-168
+### code chunk number 10: Running_coalescentMCMC.Rnw:166-167
 ###################################################
 TR2 <- getMCMCtrees(2)
 
 
 ###################################################
-### code chunk number 11: Running_coalescentMCMC.Rnw:173-174
+### code chunk number 11: Running_coalescentMCMC.Rnw:172-173
 ###################################################
 getMCMCstats()
 
 
 ###################################################
-### code chunk number 12: Running_coalescentMCMC.Rnw:194-198
+### code chunk number 12: Running_coalescentMCMC.Rnw:193-197
 ###################################################
 tr <- TR[201:300]
 THETA <- out[301:400, 2]
@@ -82,7 +82,7 @@ summary(logLik0)
 
 
 ###################################################
-### code chunk number 13: Running_coalescentMCMC.Rnw:202-207
+### code chunk number 13: Running_coalescentMCMC.Rnw:201-206
 ###################################################
 tr2 <- TR2[201:300]
 THETA0 <- out2[301:400, 2]
@@ -92,8 +92,9 @@ summary(logLik1)
 
 
 ###################################################
-### code chunk number 14: Running_coalescentMCMC.Rnw:211-212
+### code chunk number 14: Running_coalescentMCMC.Rnw:210-212
 ###################################################
+library(lattice)
 print(histogram(~c(logLik0, logLik1) | gl(2, 100, labels = c("H0", "H1"))))
 
 

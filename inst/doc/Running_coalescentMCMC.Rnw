@@ -66,9 +66,8 @@ distance matrix is used). \code{model} is either \code{NULL} in which
 case $\Theta$ is assumed to be constant, or \code{"time"} in which
 case a model where $\Theta$ follows an exponential growth is
 used.\footnote{Other models will be implemented later. See the
-vignette ``CoalescentModels''.} Finally, \code{quiet} is a logical
-parameter controlling whether to print an indication of the progress
-of the chain.
+vignette ``CoalescentModels''.} Finally, \code{printevery} is an integer
+controlling the print frequency of the progress of the chain.
 
 The current implementation uses only neighborhood rearrangement as
 proposed in \cite{Kuhner1995} calling the function
@@ -81,7 +80,7 @@ light analysis in order to produce small outputs in a reasonable time.
 
 <<echo=false,quiet=true>>=
 data(woodmouse)
-out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, quiet = TRUE)
+out <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, printevery = 0)
 @
 
 \begin{Schunk}
@@ -124,7 +123,7 @@ colnames(out)
 We now run a model of time-dependent coalescent where $\Theta$ follows an exponential change through time:
 
 <<echo=false,quiet=true>>=
-out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time", quiet = TRUE)
+out2 <- coalescentMCMC(woodmouse, ntrees = 300, burnin = 100, model = "time", printevery = 0)
 @
 
 \begin{Schunk}
@@ -209,6 +208,7 @@ summary(logLik1)
 A conditional histogram shows the two distributions:
 
 <<fig=true>>=
+library(lattice)
 print(histogram(~c(logLik0, logLik1) | gl(2, 100, labels = c("H0", "H1"))))
 @ 
 Since the increase in log-likelihood for the second model is about 8, the LRT comparing both models is $\chi^2_1 \approx 16$ which is highly significant ($P \approx 6 \times 10^{-5}$). This suggests that the population of woodmice (\textit{Apodemus sylvaticus}) from where these sequences have been sampled has expanded (reminding that in coalescent models the time scale is reversed so a negative value of $\rho$ means that the population has expanded).

@@ -26,7 +26,7 @@
 }
 \usage{
 coalescentMCMC(x, ntrees = 3000, burnin = 1000, frequency = 1,
-               tree0 = NULL, model = NULL, quiet = FALSE)
+               tree0 = NULL, model = NULL, printevery = 100)
 getMCMCtrees(chain = NULL)
 saveMCMCtrees(destdir = ".", format = "RDS", ...)
 cleanMCMCtrees()
@@ -43,8 +43,9 @@ getMCMCstats()
     tree with a JC69 distance is generated.}
   \item{model}{the coalescent model to be used for resampling. By
     default, a constant-THETA is used.}
-  \item{quiet}{a logical specifying whether to print the numbers of trees
-    proposed and accepted.}
+  \item{printevery}{an integer specifying the frequency at which to
+    print the numbers of trees proposed and accepted; set to 0 to cancel
+    all printings.}
   \item{chain}{an integer giving which lists of trees to extract}
   \item{destdir}{a character string giving the location where to save
     the files; by default, this is the current working directory.}

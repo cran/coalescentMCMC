@@ -1,8 +1,8 @@
-## treeOperators.R (2013-10-18)
+## treeOperators.R (2014-07-09)
 
 ##   Trees Operators for Running MCMC
 
-## Copyright 2012-2013 Emmanuel Paradis
+## Copyright 2012-2014 Emmanuel Paradis
 
 ## This file is part of the R-package `coalescentMCMC'.
 ## See the file ../COPYING for licensing issues.
@@ -10,11 +10,11 @@
 getIndexEdge <- function(tip, edge)
     ## 'integer(1)' mustn't be substituted by '0L' except if 'DUP = TRUE':
     .C(get_single_index_integer, as.integer(edge[, 2L]),
-       as.integer(tip), integer(1L), NAOK = TRUE, DUP = FALSE)[[3L]]
+       as.integer(tip), integer(1L), NAOK = TRUE)[[3L]]
 
 getIndexEdge2 <- function(node, edge)
     .C(get_two_index_integer, as.integer(edge[, 1L]),
-       as.integer(node), integer(2L), NAOK = TRUE, DUP = FALSE)[[3L]]
+       as.integer(node), integer(2L), NAOK = TRUE)[[3L]]
 
 NeighborhoodRearrangement <- function(phy, n, nodeMax, target, THETA, brtimes)
 {

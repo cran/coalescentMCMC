@@ -1,4 +1,4 @@
-## coalescentMCMC.R (2013-12-04)
+## coalescentMCMC.R (2013-12-13)
 
 ##   Run MCMC for Coalescent Trees
 
@@ -9,9 +9,18 @@
 
 coalescentMCMC <-
     function(x, ntrees = 3000, burnin = 1000, frequency = 1,
-             tree0 = NULL, model = NULL, quiet = FALSE)
+             tree0 = NULL, model = NULL, printevery = 100)
 {
+    if (packageVersion("phangorn") >= "1.99.5") {
+        edQt <- phangorn::edQt
+        lli <- phangorn::lli
+        pml.fit <- phangorn::pml.fit
+        pml.free <- phangorn::pml.free
+        pml.init <- phangorn::pml.init
+    }
+
     on.exit({
+        if (packageVersion("phangorn") >= "1.99.5") pml.free()
         if (k < nOut) {
             if (!k) stop("burn-in period not yet finished")
             TREES <- TREES[seq_len(k)]
@@ -44,6 +53,8 @@ coalescentMCMC <-
         return(LL)
     })
 
+    verbose <- as.logical(printevery)
+
     if (is.null(tree0)) {
         d <- dist.dna(x, "JC69")
         tree0 <- as.phylo(hclust(d, "average"))
@@ -60,15 +71,15 @@ coalescentMCMC <-
     if (packageVersion("phangorn") >= "1.99.5") {
         INV <- Matrix(lli(X, tree0), sparse = TRUE)
         ll.0 <- numeric(attr(X, "nr"))
+        ## by Klaus (ensures that tip labels of tree and data have same order):
+        X <- subset(X, tree0$tip.label)
+        ##
         bf <- rep(0.25, 4)
         eig <- edQt()
+        pml.init(X)
         getlogLik <- function(phy, X) {
             phy <- reorder(phy, "postorder")
-            pml.init(X)
-            loglik <- pml.fit(phy, X, bf = bf, eig = eig,
-                              INV = INV, ll.0 = ll.0)
-            pml.free()
-            loglik
+            pml.fit(phy, X, bf = bf, eig = eig, INV = INV, ll.0 = ll.0)
         }
     }
 
@@ -135,7 +146,7 @@ coalescentMCMC <-
     j <- 0L # number of accepted moves
     k <- 0L # number of sampled trees
 
-    if (!quiet) {
+    if (verbose) {
         cat("Running the Markov chain:\n")
         cat("  Number of trees to output:", ntrees, "\n")
         cat("  Burn-in period:", burnin, "\n")
@@ -150,7 +161,7 @@ coalescentMCMC <-
     nodesToSample <- (n + 2):nodeMax
 
     while (k < nOut) {
-        if (!quiet)
+        if (verbose) if (! i %% printevery)
             cat("\r  ", i, "                ", j, "           ")
 
         ## select one internal node excluding the root:
@@ -185,7 +196,7 @@ coalescentMCMC <-
             bt0 <- bt
         }
     }
-    if (!quiet) cat("\nDone.\n")
+    if (verbose) cat("\nDone.\n")
 }
 
 .get.list.trees <- function()
