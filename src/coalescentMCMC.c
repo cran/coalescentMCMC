@@ -1,38 +1,42 @@
-/* coalescentMCMC.c (2013-08-13) */
-
-/* Copyright 2012-2013 Emmanuel Paradis
-
-/* This file is part of the R-package `coalescentMCMC'. */
-/* See the file ../COPYING for licensing issues. */
-
 #include <R.h>
+#include <Rinternals.h>
 #include <R_ext/Rdynload.h>
 
-void get_single_index_integer(int *x, int *val, int *index)
+SEXP branchingTimesCall(SEXP edge, SEXP edgelength)
 {
-	int i = 0, v = *val;
-	while (x[i] != v) i++;
-	*index = i + 1;
+    double *p, *el;
+    int *e;
+    SEXP xx;
+    PROTECT(edge = coerceVector(edge, INTSXP));
+    PROTECT(edgelength = coerceVector(edgelength, REALSXP));
+    int N = LENGTH(edge)/2; /* number of edges */
+    int n = N/2 + 1; /* number of tips */
+    PROTECT(xx = allocVector(REALSXP, n - 1));
+    e = INTEGER(edge);
+    el = REAL(edgelength);
+    p = REAL(xx);
+    memset(p, 0, (n - 1) * sizeof(double));
+
+    for (int i = 0; i < N; i++) {
+	if (e[i + N] <= n) continue;
+	p[e[i + N] - n - 1] = p[e[i] - n - 1] + el[i];
+    }
+    double depth = p[e[N - 1] - n - 1] + el[N - 1];
+    for (int i = 0; i < n - 1; i++) {
+	p[i] *= -1;
+	p[i] += depth;
+    }
+    UNPROTECT(3);
+    return xx;
 }
 
-void get_two_index_integer(int *x, int *val, int *index)
-{
-	int i1 = 0, i2, v = *val;
-	while (x[i1] != v) i1++;
-	i2 = i1 + 1;
-	while (x[i2] != v) i2++;
-	index[0] = i1 + 1;
-	index[1] = i2 + 1;
-}
-
-static R_CMethodDef C_entries[] = {
-    {"get_single_index_integer", (DL_FUNC) &get_single_index_integer, 3},
-    {"get_two_index_integer", (DL_FUNC) &get_two_index_integer, 3},
+static R_CallMethodDef Call_entries[] = {
+    {"branchingTimesCall", (DL_FUNC) &branchingTimesCall, 2},
     {NULL, NULL, 0}
 };
 
 void R_init_coalescentMCMC(DllInfo *info)
 {
-    R_registerRoutines(info, C_entries, NULL, NULL, NULL);
+    R_registerRoutines(info, NULL, Call_entries, NULL, NULL);
     R_useDynamicSymbols(info, FALSE);
 }

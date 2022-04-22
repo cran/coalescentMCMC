@@ -1,0 +1,11 @@
+citHeader("To cite coalescentMCMC in a publication please use:")
+
+citEntry(entry="Book",
+	title = "Population Genomics With {R}",
+        author = personList(as.person("E. Paradis")),
+	publisher = "Chapman & Hall",
+  	year = "2020",
+	address = "Boca Raton",
+
+        textVersion = "Paradis E. 2020. Population Genomics With R. Chapman & Hall, Boca Raton.")
+
